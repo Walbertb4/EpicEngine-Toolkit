@@ -5,10 +5,15 @@ screenshots/
 cookies/
 profiles/
 .env
+ 
+# ADB binary — download separately from:
+# https://developer.android.com/tools/releases/platform-tools
 adb.exe
-
+adb
+ 
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+ 
