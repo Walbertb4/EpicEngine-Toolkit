@@ -5,6 +5,7 @@ screenshots/
 cookies/
 profiles/
 .env
+adb.exe
 
 __pycache__/
 *.pyc
