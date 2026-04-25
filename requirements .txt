@@ -1,0 +1,2 @@
+botasaurus-driver
+customtkinter
