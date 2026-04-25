@@ -1,0 +1,13 @@
+logs/
+accounts/
+game_accounts/
+screenshots/
+cookies/
+profiles/
+.env
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
