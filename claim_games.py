@@ -298,15 +298,56 @@ def step_claim_game(driver, target_game_url: str) -> str | None:
         
         # GET Butonuna bas
         driver.run_js(f"document.querySelector('{get_button_selector}').click()")
-        print("  [✓] 'Get' butonuna basıldı. Sipariş penceresi bekleniyor...")
-        
-        time.sleep(8) 
+        print("  [✓] 'Get' butonuna basıldı. Onay ekranı kontrol ediliyor...")
+
+        time.sleep(3)
 
         # Oturum düşme (Epic Güvenliği) kontrolü
         if "login" in driver.current_url.lower():
             return "Oturum düştü, login sayfasına geri attı (Epic Güvenliği)."
 
-        # --- AKILLI SİPARİŞ VER (PLACE ORDER) ARAMA MOTORU ---
+        # --- 1. ADIM: YENİ EPIC UI - "It's all yours" EKRANINI BEKLE ---
+        # Bazı oyunlarda Epic artık Place Order penceresi çıkarmıyor,
+        # Get'e basınca direkt onay ekranı geliyor. Önce bunu kontrol et.
+        def check_success_screen():
+            page_html = driver.run_js("return document.body.innerHTML;") or ""
+            classic = (
+                "Thanks for your order!" in page_html or
+                "Order number" in page_html or
+                "Ready to install" in page_html or
+                "Siparişiniz için teşekkürler" in page_html
+            )
+            new_ui = driver.run_js("""
+                var el = document.querySelector('[data-testid="checkout-success-title"]');
+                if (el && el.offsetParent !== null) return true;
+                var spans = document.querySelectorAll('h3 span, span');
+                for (var i = 0; i < spans.length; i++) {
+                    var t = (spans[i].innerText || spans[i].textContent || "").trim();
+                    if (t === "It's all yours") return true;
+                }
+                return false;
+            """) or False
+            return classic or new_ui
+
+        print("  [→] Yeni Epic UI onay ekranı bekleniyor ('It's all yours')...")
+        start_wait = time.time()
+        got_new_ui = False
+        while time.time() - start_wait < 10:
+            check_gui_signals()
+            if check_success_screen():
+                got_new_ui = True
+                break
+            time.sleep(1)
+
+        if got_new_ui:
+            print("  [✓] Sipariş başarıyla tamamlandı! (Yeni Epic UI)")
+            time.sleep(2)
+            return "SUCCESS_CLAIMED"
+
+        # --- 2. ADIM: ESKİ AKIŞ - PLACE ORDER PENCERESİNİ ARA ---
+        print("  [→] Yeni UI gelmedi, Place Order penceresi aranıyor...")
+        time.sleep(5)  # Sayfanın yüklenmesi için ek bekleme
+
         start_wait = time.time()
         order_clicked = False
         while time.time() - start_wait < 30:
@@ -349,23 +390,21 @@ def step_claim_game(driver, target_game_url: str) -> str | None:
                 print("  [✓] Sipariş ver (Place Order) butonuna basıldı.")
                 break
             time.sleep(1)
-            
+
         if not order_clicked:
             return "Place Order butonu bulunamadı"
 
-        # --- SİPARİŞ ONAY EKRANINI BEKLE (Thanks for your order) ---
+        # --- 3. ADIM: ESKİ AKIŞ ONAY EKRANINI BEKLE ---
         print("  [→] Siparişin tamamlanması bekleniyor...")
         start_wait = time.time()
         while time.time() - start_wait < 45:
             check_gui_signals()
-            page_html = driver.run_js("return document.body.innerHTML;") or ""
-            
-            if "Thanks for your order!" in page_html or "Order number" in page_html or "Ready to install" in page_html or "Siparişiniz için teşekkürler" in page_html:
+            if check_success_screen():
                 print("  [✓] Sipariş başarıyla tamamlandı!")
                 time.sleep(2)
                 return "SUCCESS_CLAIMED"
             time.sleep(2)
-            
+
         return "Sipariş onay ekranı ('Thanks for your order!') gelmedi."
     except Exception as e:
         return f"Oyun alma hatası: {str(e)}"
