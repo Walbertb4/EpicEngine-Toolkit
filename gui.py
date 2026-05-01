@@ -11,6 +11,7 @@ import re
 import create_epic_acc
 import claim_games
 import check_games
+import Multi_Instance  # YENİ MODÜL
 
 # --- THEME SETTINGS ---
 ctk.set_appearance_mode("dark")
@@ -76,7 +77,7 @@ class EpicBotGUI(ctk.CTk):
     def create_sidebar(self):
         self.sidebar_frame = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color=BG_SIDEBAR)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(8, weight=1)
+        self.sidebar_frame.grid_rowconfigure(9, weight=1)
 
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="EPIC ENGINE", font=ctk.CTkFont(size=22, weight="bold"), text_color=TEXT_PRIMARY)
         self.logo_label.grid(row=0, column=0, padx=20, pady=(25, 20))
@@ -91,7 +92,6 @@ class EpicBotGUI(ctk.CTk):
         
         self.radio_var = ctk.IntVar(value=0)
         
-        # SIRALAMA GÜNCELLENDİ
         self.rb_create = ctk.CTkRadioButton(self.sidebar_frame, text="1. Create Accounts", variable=self.radio_var, value=0)
         self.rb_create.grid(row=4, column=0, padx=20, pady=8, sticky="w")
         
@@ -103,16 +103,19 @@ class EpicBotGUI(ctk.CTk):
 
         self.switch_ip = ctk.CTkSwitch(self.sidebar_frame, text="Mobile IP Rotator")
         self.switch_ip.select()
-        self.switch_ip.grid(row=7, column=0, padx=20, pady=30, sticky="w")
+        self.switch_ip.grid(row=7, column=0, padx=20, pady=(20, 5), sticky="w")
+
+        self.switch_multi = ctk.CTkSwitch(self.sidebar_frame, text="3x Multi-Instance")
+        self.switch_multi.grid(row=8, column=0, padx=20, pady=(5, 15), sticky="w")
 
         self.btn_start = ctk.CTkButton(self.sidebar_frame, text="▶ START ENGINE", command=self.start_engine, fg_color="#298F4A", hover_color="#1E6E38", font=ctk.CTkFont(weight="bold"))
-        self.btn_start.grid(row=9, column=0, padx=20, pady=(20, 5), sticky="ew")
+        self.btn_start.grid(row=10, column=0, padx=20, pady=(20, 5), sticky="ew")
         
         self.btn_pause = ctk.CTkButton(self.sidebar_frame, text="⏸ PAUSE", command=self.pause_engine, fg_color="#D38415", hover_color="#A86A11")
-        self.btn_pause.grid(row=10, column=0, padx=20, pady=5, sticky="ew")
+        self.btn_pause.grid(row=11, column=0, padx=20, pady=5, sticky="ew")
 
         self.btn_stop = ctk.CTkButton(self.sidebar_frame, text="⏹ STOP", command=self.stop_engine, fg_color="#A5332E", hover_color="#7A2521")
-        self.btn_stop.grid(row=11, column=0, padx=20, pady=(5, 30), sticky="ew")
+        self.btn_stop.grid(row=12, column=0, padx=20, pady=(5, 30), sticky="ew")
 
     def create_main_area(self):
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -210,31 +213,40 @@ class EpicBotGUI(ctk.CTk):
 
         self.after(1000, self.update_timers)
 
-    def save_log(self):
-        try:
-            logs_dir = os.path.join(os.path.dirname(__file__), "logs")
-            os.makedirs(logs_dir, exist_ok=True)
-            
-            timestamp = time.strftime("%d-%m-%Y_%H-%M-%S")
-            filename = os.path.join(logs_dir, f"log_{timestamp}.txt")
-            
-            log_content = self.terminal.get("0.0", "end")
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(log_content)
-                
-            print(f"\n[SYSTEM] 📝 Terminal kaydı logs klasörüne alındı: {filename}")
-        except Exception as e:
-            print(f"\n[ERROR] Log kaydedilemedi: {str(e)}")
-
     def _run_bot_thread(self):
         use_rotator = bool(self.switch_ip.get() == 1)
+        use_multi = bool(self.switch_multi.get() == 1)
         mode = self.radio_var.get()
         
+        grid_configs = None
+        if use_multi:
+            # Ekranı 4'e bölecek matematik hesaplamaları
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            w, h = sw // 2, sh // 2
+            
+            # Arayüzü Sol Üst (Q1) köşeye taşı
+            self.geometry(f"{w}x{h}+0+0")
+            
+            grid_configs = [
+                {"x": w, "y": 0, "w": w, "h": h},       # Q2: Sağ Üst
+                {"x": 0, "y": h, "w": w, "h": h},       # Q3: Sol Alt
+                {"x": w, "y": h, "w": w, "h": h}        # Q4: Sağ Alt
+            ]
+        else:
+            self.geometry("1150x700")
+
         if mode == 0:
-            create_epic_acc.start_automation(self.credentials_list, use_rotator, self.update_ui_counters)
+            if use_multi:
+                Multi_Instance.start_multi_create(self.credentials_list, use_rotator, grid_configs, self.update_ui_counters)
+            else:
+                create_epic_acc.start_automation(self.credentials_list, use_rotator, self.update_ui_counters)
         elif mode == 1:
             target_url = self.entry_url.get().strip()
-            claim_games.start_claiming(self.credentials_list, use_rotator, target_url, self.update_ui_counters)
+            if use_multi:
+                Multi_Instance.start_multi_claim(self.credentials_list, use_rotator, target_url, grid_configs, self.update_ui_counters)
+            else:
+                claim_games.start_claiming(self.credentials_list, use_rotator, target_url, self.update_ui_counters)
         elif mode == 2:
             target_url = self.entry_url.get().strip()
             check_games.start_checking(self.credentials_list, target_url, self.update_ui_counters)
@@ -266,7 +278,6 @@ class EpicBotGUI(ctk.CTk):
         self.credentials_list = []
         skipped = 0
 
-        # --- SEÇİLEN MODA GÖRE FİLTRELEME SİSTEMİ ---
         if mode == 0: # 1. Create Accounts Modu
             success_file = os.path.join(os.path.dirname(__file__), "accounts", "successfull_accounts.txt")
             successful_emails = set()
