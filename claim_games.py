@@ -412,15 +412,19 @@ def step_claim_game(driver, target_game_url: str) -> str | None:
 # ─────────────────────────────────────────────
 # ANA MOTOR VE LİSTE İŞLEME
 # ─────────────────────────────────────────────
-def process_account(email: str, password: str, target_game_url: str, max_retries: int = 2) -> tuple[bool, str]:
+def process_account(email: str, password: str, target_game_url: str, max_retries: int = 2, profile_name: str = None, grid_pos: dict = None) -> tuple[bool, str]:
     for attempt in range(1, max_retries + 1):
         try: check_gui_signals()
         except InterruptedError: return False, "Sistem Durduruldu"
 
         if attempt > 1: print(f"  [→] Motor yenileniyor ({attempt}/{max_retries})...")
-        driver = human.create_driver()
-
+        
+        driver = None
         try:
+            # 1. Bütün koordinat işini human_simulator hallediyor, biz sadece yolluyoruz.
+            driver = human.create_driver(profile_name=profile_name, grid_pos=grid_pos)
+
+            # 3. İşlemlere normal devam et
             if not step_login(driver, email, password):
                 if attempt < max_retries: continue
                 return False, "Login başarısız"
@@ -439,8 +443,9 @@ def process_account(email: str, password: str, target_game_url: str, max_retries
                 return False, result
 
         finally:
-            try: driver.close()
-            except: pass
+            if driver:
+                try: driver.close()
+                except: pass
 
     return False, "Max deneme"
 
