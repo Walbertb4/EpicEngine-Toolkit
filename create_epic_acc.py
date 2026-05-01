@@ -297,15 +297,19 @@ def _step_email_verify(driver, email: str, password: str) -> bool:
         return False
     except Exception: return False
 
-def process_account(email: str, password: str, max_retries: int = 2) -> tuple[bool, str]:
+def process_account(email: str, password: str, max_retries: int = 2, profile_name: str = None, grid_pos: dict = None) -> tuple[bool, str]:
     for attempt in range(1, max_retries + 1):
         try: check_gui_signals()
         except InterruptedError: return False, "Sistem Durduruldu"
 
         if attempt > 1: print(f"  [→] Form yenileniyor ({attempt}/{max_retries})...")
-        driver = human.create_driver()
-
+        
+        driver = None
         try:
+            # 1. Bütün koordinat işini human_simulator hallediyor, biz sadece yolluyoruz.
+            driver = human.create_driver(profile_name=profile_name, grid_pos=grid_pos)
+
+            # 3. İşlemlere normal devam et
             if not step_date_of_birth(driver):
                 if attempt < max_retries: continue
                 return False, "Doğum tarihi adımı başarısız"
@@ -324,8 +328,9 @@ def process_account(email: str, password: str, max_retries: int = 2) -> tuple[bo
 
             return True, display_name
         finally:
-            try: driver.close()
-            except: pass
+            if driver:
+                try: driver.close()
+                except: pass
 
     return False, "Max deneme"
 
