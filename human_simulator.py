@@ -42,33 +42,35 @@ SCREENSHOTS_DIR = BASE_DIR / "screenshots"; SCREENSHOTS_DIR.mkdir(parents=True, 
 
 def create_driver(
     headless: bool = False,
-    profile_name: Optional[str] = None,
-    proxy: Optional[str] = None,
-) -> Driver:
-    """
-    botasaurus Driver oluşturur.
-
-    Args:
-        headless     : Arka planda çalıştır
-        profile_name : Profil adı → human/profiles/<isim>/
-        proxy        : "host:port" formatında proxy
-
-    Returns:
-        botasaurus Driver nesnesi
-    """
+    profile_name: str = None,
+    proxy: str = None,
+    grid_pos: dict = None  # YENİ: Koordinat argümanı tekrar eklendi
+):
+    from botasaurus_driver import Driver
+    from pathlib import Path
+    
     profile_path = None
     if profile_name:
         profile_path = str(PROFILES_DIR / profile_name)
         Path(profile_path).mkdir(parents=True, exist_ok=True)
 
+    # İŞTE BÜTÜN SIR BURADA: Botasaurus "arguments" isimli bir liste istiyormuş!
+    custom_args = []
+    if grid_pos and not headless:
+        x, y = int(grid_pos['x']), int(grid_pos['y'])
+        w, h = int(grid_pos['w']), int(grid_pos['h'])
+        custom_args.append(f"--window-position={x},{y}")
+        custom_args.append(f"--window-size={w},{h}")
+
+    # Tertemiz, doğrudan kütüphanenin anladığı dilden başlatıyoruz
     driver = Driver(
         headless=headless,
         profile=profile_path,
         proxy=proxy,
+        arguments=custom_args  # Çözüm bu parametre
     )
 
     return driver
-
 
 # ─────────────────────────────────────────────
 # SAYFA YÖNETİMİ
@@ -188,7 +190,6 @@ def human_type(driver: Driver, selector: str, text: str, wpm: int = None) -> boo
     try:
         element = wait_for(driver, selector, timeout=10)
         if not element:
-            print(f"  [!] human_type: element bulunamadı ({selector})")
             return False
 
         element.click()
@@ -211,7 +212,6 @@ def human_type(driver: Driver, selector: str, text: str, wpm: int = None) -> boo
         return True
 
     except Exception as e:
-        print(f"  [!] human_type hatası ({selector}): {e}")
         return False
 
 
